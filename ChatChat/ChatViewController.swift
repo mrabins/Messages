@@ -33,7 +33,7 @@ final class ChatViewController: JSQMessagesViewController {
     var channelRef: DatabaseReference?
     
     private lazy var messageRef: DatabaseReference = self.channelRef!.child("messages")
-    fileprivate lazy var storageRef: StorageReference = Storage.storage().reference(forURL: "gs://chatchat-rw-cf107.appspot.com")
+    fileprivate lazy var storageRef: StorageReference = Storage.storage().reference(forURL: "gs://cover-interview.appspot.com")
     private lazy var userIsTypingRef: DatabaseReference = self.channelRef!.child("typingIndicator").child(self.senderId)
     private lazy var usersTypingQuery: DatabaseQuery = self.channelRef!.child("typingIndicator").queryOrderedByValue().queryEqual(toValue: true)
     
