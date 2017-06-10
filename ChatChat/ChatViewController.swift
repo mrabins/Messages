@@ -43,6 +43,10 @@ final class ChatViewController: JSQMessagesViewController {
     private var messages: [JSQMessage] = []
     private var photoMessageMap = [String: JSQPhotoMediaItem]()
     
+    
+    var dateString = String()
+    var selectedImageFromChatBubble: UIImage?
+    
     private var localTyping = false
     var channel: Channel? {
         didSet {
@@ -84,9 +88,6 @@ final class ChatViewController: JSQMessagesViewController {
         super.viewDidAppear(animated)
         observeTyping()
         
-        for items in messages {
-            let theDate = items.date
-        }
     }
     
     deinit {
@@ -121,10 +122,11 @@ final class ChatViewController: JSQMessagesViewController {
         let cell = super.collectionView(collectionView, cellForItemAt: indexPath) as! JSQMessagesCollectionViewCell
         
         let message = messages[indexPath.item]
-
+        
         if message.senderId == senderId { // 1
             cell.textView?.textColor = UIColor.white // 2
             cell.cellBottomLabel.text = "\(message.senderDisplayName!)" + "  the time Stamp"
+            
         } else {
             cell.textView?.textColor = UIColor.black // 3
         }
@@ -140,7 +142,7 @@ final class ChatViewController: JSQMessagesViewController {
         return 25.5
     }
     
-
+    
     
     // MARK: Firebase related methods
     private func observeMessages() {
@@ -152,9 +154,19 @@ final class ChatViewController: JSQMessagesViewController {
         newMessageRefHandle = messageQuery.observe(.childAdded, with: { (snapshot) -> Void in
             let messageData = snapshot.value as! Dictionary<String, String>
             
-            if let id = messageData["senderId"] as String!, let name = messageData["senderName"] as String!, let text = messageData["text"] as String!, text.characters.count > 0 {
-                self.addMessage(withId: id, name: name, text: text)
+            if let id = messageData["senderId"] as String!, let name = messageData["senderName"] as String!, let text = messageData["text"] as String!, text.characters.count > 0, let timeStamp = messageData["timeStamp"] as String! {
+                self.addMessage(withId: id, name: name, text: text, timeStamp: timeStamp)
+                print("OBSERVE MESSGE DATA \(messageData)")
+                self.dateString = messageData["timeStamp"]!
+                
+                //                JSQMessagesTimestampFormatter.sharedFormatter().attributedTimestampForDate(message.date)
+                
+                print("here's all the date strings :", self.dateString)
+                
                 self.finishReceivingMessage()
+                
+                
+                
             } else if let id = messageData["senderId"] as String!, let photoURL = messageData["photoURL"] as String! {
                 if let mediaItem = JSQPhotoMediaItem(maskAsOutgoing: id == self.senderId) {
                     self.addPhotoMessage(withId: id, key: snapshot.key, mediaItem: mediaItem)
@@ -242,10 +254,12 @@ final class ChatViewController: JSQMessagesViewController {
         let messageItem = [
             "senderId": senderId!,
             "senderName": senderDisplayName!,
+            "timeStamp": String(describing: date!),
             "text": text!,
             ]
-        
         // 3
+        print("I am the message item SENT!!! ::::: \(messageItem)")
+        
         itemRef.setValue(messageItem)
         
         // 4
@@ -255,7 +269,7 @@ final class ChatViewController: JSQMessagesViewController {
         finishSendingMessage()
         isTyping = false
     }
-
+    
     
     func sendPhotoMessage() -> String? {
         let itemRef = messageRef.childByAutoId()
@@ -302,7 +316,7 @@ final class ChatViewController: JSQMessagesViewController {
         present(picker, animated: true, completion:nil)
     }
     
-    private func addMessage(withId id: String, name: String, text: String) {
+    private func addMessage(withId id: String, name: String, text: String, timeStamp: String) {
         if let message = JSQMessage(senderId: id, displayName: name, text: text) {
             messages.append(message)
             
@@ -318,6 +332,39 @@ final class ChatViewController: JSQMessagesViewController {
             }
             
             collectionView.reloadData()
+        }
+    }
+    
+    override func collectionView(_ collectionView: JSQMessagesCollectionView!, didTapMessageBubbleAt indexPath: IndexPath!) {
+        if let image = self.getImage(indexPath: indexPath)  {
+            selectedImageFromChatBubble = image
+            self.performSegue(withIdentifier: "showImage", sender: self)
+        }
+    }
+    
+    func getImage(indexPath: IndexPath) -> UIImage? {
+        let message = self.messages[indexPath.row]
+        if message.isMediaMessage == true {
+            let mediaItem = message.media
+            if mediaItem is JSQPhotoMediaItem {
+                let photoItem = mediaItem as! JSQPhotoMediaItem
+                if let theImage: UIImage = photoItem.image {
+                    return theImage
+                }
+            }
+        }
+        return nil
+    }
+    
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if segue.identifier == "showImage" {
+            if let imageViewDestination = segue.destination as? ShowImageViewController {
+                imageViewDestination.image = selectedImageFromChatBubble!
+            } else {
+                print("type desitnation isn't there")
+            }
+        } else {
+            print("No Segue")
         }
     }
     
@@ -377,35 +424,27 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
 }
 
 extension Date {
-    /// Returns the amount of years from another date
     func years(from date: Date) -> Int {
         return Calendar.current.dateComponents([.year], from: date, to: self).year ?? 0
     }
-    /// Returns the amount of months from another date
     func months(from date: Date) -> Int {
         return Calendar.current.dateComponents([.month], from: date, to: self).month ?? 0
     }
-    /// Returns the amount of weeks from another date
     func weeks(from date: Date) -> Int {
         return Calendar.current.dateComponents([.weekOfMonth], from: date, to: self).weekOfMonth ?? 0
     }
-    /// Returns the amount of days from another date
     func days(from date: Date) -> Int {
         return Calendar.current.dateComponents([.day], from: date, to: self).day ?? 0
     }
-    /// Returns the amount of hours from another date
     func hours(from date: Date) -> Int {
         return Calendar.current.dateComponents([.hour], from: date, to: self).hour ?? 0
     }
-    /// Returns the amount of minutes from another date
     func minutes(from date: Date) -> Int {
         return Calendar.current.dateComponents([.minute], from: date, to: self).minute ?? 0
     }
-    /// Returns the amount of seconds from another date
     func seconds(from date: Date) -> Int {
         return Calendar.current.dateComponents([.second], from: date, to: self).second ?? 0
     }
-    /// Returns the a custom time interval description from another date
     func offset(from date: Date) -> String {
         if years(from: date)   > 0 { return "\(years(from: date))y"   }
         if months(from: date)  > 0 { return "\(months(from: date))M"  }
