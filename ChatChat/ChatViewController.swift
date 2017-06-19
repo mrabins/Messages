@@ -28,41 +28,24 @@ import JSQMessagesViewController
 final class ChatViewController: JSQMessagesViewController {
     
     // MARK: Properties
-    private let imageURLNotSetKey = "NOTSET"
-    
-    var channelRef: DatabaseReference?
-    
-    private lazy var messageRef: DatabaseReference = self.channelRef!.child("messages")
     fileprivate lazy var storageRef: StorageReference = Storage.storage().reference(forURL: "gs://cover-interview.appspot.com")
-    private lazy var userIsTypingRef: DatabaseReference = self.channelRef!.child("typingIndicator").child(self.senderId)
-    private lazy var usersTypingQuery: DatabaseQuery = self.channelRef!.child("typingIndicator").queryOrderedByValue().queryEqual(toValue: true)
     
-    private var newMessageRefHandle: DatabaseHandle?
-    private var updatedMessageRefHandle: DatabaseHandle?
-    
-    private var messages: [JSQMessage] = []
-    private var photoMessageMap = [String: JSQPhotoMediaItem]()
+    @IBOutlet var chatViewModel: ChatViewModel!
+    @IBOutlet var firebaseClient: FirebaseClient!
     
     
-    var dateString = String()
+    var fbClient = FirebaseClient()
+    var chatVM = ChatViewModel()
+    
     var selectedImageFromChatBubble: UIImage?
     
-    private var localTyping = false
     var channel: Channel? {
         didSet {
             title = channel?.name
         }
     }
     
-    var isTyping: Bool {
-        get {
-            return localTyping
-        }
-        set {
-            localTyping = newValue
-            userIsTypingRef.setValue(newValue)
-        }
-    }
+    
     
     lazy var outgoingBubbleImageView: JSQMessagesBubbleImage = self.setupOutgoingBubble()
     lazy var incomingBubbleImageView: JSQMessagesBubbleImage = self.setupIncomingBubble()
@@ -70,12 +53,8 @@ final class ChatViewController: JSQMessagesViewController {
     // MARK: View Lifecycle
     
     override func viewDidLoad() {
-        
-        
         super.viewDidLoad()
         self.senderId = Auth.auth().currentUser?.uid
-        
-        observeMessages()
         
         // No avatars
         collectionView!.collectionViewLayout.incomingAvatarViewSize = CGSize.zero
@@ -86,34 +65,37 @@ final class ChatViewController: JSQMessagesViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        observeTyping()
+        fbClient.observeTyping()
+        fbClient.observeMessages()
+        
         
     }
     
     deinit {
-        if let refHandle = newMessageRefHandle {
-            messageRef.removeObserver(withHandle: refHandle)
+        if let refHandle = fbClient.newMessageRefHandle {
+            fbClient.messageRef.removeObserver(withHandle: refHandle)
         }
-        if let refHandle = updatedMessageRefHandle {
-            messageRef.removeObserver(withHandle: refHandle)
+        if let refHandle = fbClient.updatedMessageRefHandle {
+            fbClient.messageRef.removeObserver(withHandle: refHandle)
         }
     }
+    
     
     // MARK: Collection view data source (and related) methods
     
     override func collectionView(_ collectionView: JSQMessagesCollectionView!, messageDataForItemAt indexPath: IndexPath!) -> JSQMessageData! {
-        return messages[indexPath.item]
+        return chatVM.messages![indexPath.item]
     }
     
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return messages.count
+        return chatVM.numberOfItemsInSection(section: section)
     }
     
     override func collectionView(_ collectionView: JSQMessagesCollectionView!, messageBubbleImageDataForItemAt indexPath: IndexPath!) -> JSQMessageBubbleImageDataSource! {
-        let message = messages[indexPath.item] // 1
-        if message.senderId == senderId { // 2
+        let message = chatVM.messages?[indexPath.item]
+        if message?.senderId == senderId {
             return outgoingBubbleImageView
-        } else { // 3
+        } else {
             return incomingBubbleImageView
         }
     }
@@ -121,12 +103,12 @@ final class ChatViewController: JSQMessagesViewController {
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = super.collectionView(collectionView, cellForItemAt: indexPath) as! JSQMessagesCollectionViewCell
         
-        let message = messages[indexPath.item]
+        let message = chatVM.messages?[indexPath.item]
         
-        if message.senderId == senderId { // 1
+        if message?.senderId == senderId { // 1
             cell.textView?.textColor = UIColor.white // 2
-            cell.cellBottomLabel.text = "\(message.senderDisplayName!)" + "  the time Stamp"
-            
+            cell.cellBottomLabel.text = "\(String(describing: message?.senderDisplayName!))" + chatVM.dateFormatter()
+                
         } else {
             cell.textView?.textColor = UIColor.black // 3
         }
@@ -144,153 +126,6 @@ final class ChatViewController: JSQMessagesViewController {
     
     
     
-    // MARK: Firebase related methods
-    private func observeMessages() {
-        messageRef = channelRef!.child("messages")
-        let messageQuery = messageRef.queryLimited(toLast:25)
-        
-        // We can use the observe method to listen for new
-        // messages being written to the Firebase DB
-        newMessageRefHandle = messageQuery.observe(.childAdded, with: { (snapshot) -> Void in
-            let messageData = snapshot.value as! Dictionary<String, String>
-            
-            if let id = messageData["senderId"] as String!, let name = messageData["senderName"] as String!, let text = messageData["text"] as String!, text.characters.count > 0, let timeStamp = messageData["timeStamp"] as String! {
-                self.addMessage(withId: id, name: name, text: text, timeStamp: timeStamp)
-                print("OBSERVE MESSGE DATA \(messageData)")
-                self.dateString = messageData["timeStamp"]!
-                
-                //                JSQMessagesTimestampFormatter.sharedFormatter().attributedTimestampForDate(message.date)
-                
-                print("here's all the date strings :", self.dateString)
-                
-                self.finishReceivingMessage()
-                
-                
-                
-            } else if let id = messageData["senderId"] as String!, let photoURL = messageData["photoURL"] as String! {
-                if let mediaItem = JSQPhotoMediaItem(maskAsOutgoing: id == self.senderId) {
-                    self.addPhotoMessage(withId: id, key: snapshot.key, mediaItem: mediaItem)
-                    
-                    if photoURL.hasPrefix("gs://") {
-                        self.fetchImageDataAtURL(photoURL, forMediaItem: mediaItem, clearsPhotoMessageMapOnSuccessForKey: nil)
-                    }
-                }
-            } else {
-                print("Error! Could not decode message data")
-            }
-        })
-        
-        // We can also use the observer method to listen for
-        // changes to existing messages.
-        // We use this to be notified when a photo has been stored
-        // to the Firebase Storage, so we can update the message data
-        updatedMessageRefHandle = messageRef.observe(.childChanged, with: { (snapshot) in
-            let key = snapshot.key
-            let messageData = snapshot.value as! Dictionary<String, String>
-            
-            if let photoURL = messageData["photoURL"] as String! {
-                // The photo has been updated.
-                if let mediaItem = self.photoMessageMap[key] {
-                    self.fetchImageDataAtURL(photoURL, forMediaItem: mediaItem, clearsPhotoMessageMapOnSuccessForKey: key)
-                }
-            }
-        })
-    }
-    
-    private func fetchImageDataAtURL(_ photoURL: String, forMediaItem mediaItem: JSQPhotoMediaItem, clearsPhotoMessageMapOnSuccessForKey key: String?) {
-        let storageRef = Storage.storage().reference(forURL: photoURL)
-        
-        storageRef.getData(maxSize: INT64_MAX){ (data, error) in
-            if let error = error {
-                print("Error downloading image data: \(error)")
-                return
-            }
-            
-            storageRef.getMetadata(completion: { (metadata, metadataErr) in
-                if let error = metadataErr {
-                    print("Error downloading metadata: \(error)")
-                    return
-                }
-                
-                if (metadata?.contentType == "image/gif") {
-                    mediaItem.image = UIImage.gifWithData(data!)
-                } else {
-                    mediaItem.image = UIImage.init(data: data!)
-                }
-                self.collectionView.reloadData()
-                
-                guard key != nil else {
-                    return
-                }
-                self.photoMessageMap.removeValue(forKey: key!)
-            })
-        }
-    }
-    
-    private func observeTyping() {
-        let typingIndicatorRef = channelRef!.child("typingIndicator")
-        userIsTypingRef = typingIndicatorRef.child(senderId)
-        userIsTypingRef.onDisconnectRemoveValue()
-        usersTypingQuery = typingIndicatorRef.queryOrderedByValue().queryEqual(toValue: true)
-        
-        usersTypingQuery.observe(.value) { (data: DataSnapshot) in
-            
-            // You're the only typing, don't show the indicator
-            if data.childrenCount == 1 && self.isTyping {
-                return
-            }
-            
-            // Are there others typing?
-            self.showTypingIndicator = data.childrenCount > 0
-            self.scrollToBottom(animated: true)
-        }
-    }
-    
-    override func didPressSend(_ button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: Date!) {
-        // 1
-        let itemRef = messageRef.childByAutoId()
-        
-        // 2
-        let messageItem = [
-            "senderId": senderId!,
-            "senderName": senderDisplayName!,
-            "timeStamp": String(describing: date!),
-            "text": text!,
-            ]
-        // 3
-        print("I am the message item SENT!!! ::::: \(messageItem)")
-        
-        itemRef.setValue(messageItem)
-        
-        // 4
-        JSQSystemSoundPlayer.jsq_playMessageSentSound()
-        
-        // 5
-        finishSendingMessage()
-        isTyping = false
-    }
-    
-    
-    func sendPhotoMessage() -> String? {
-        let itemRef = messageRef.childByAutoId()
-        
-        let messageItem = [
-            "photoURL": imageURLNotSetKey,
-            "senderId": senderId!
-        ]
-        
-        itemRef.setValue(messageItem)
-        
-        JSQSystemSoundPlayer.jsq_playMessageSentSound()
-        
-        finishSendingMessage()
-        return itemRef.key
-    }
-    
-    func setImageURL(_ url: String, forPhotoMessageWithKey key: String) {
-        let itemRef = messageRef.child(key)
-        itemRef.updateChildValues(["photoURL": url])
-    }
     
     // MARK: UI and User Interaction
     
@@ -316,24 +151,7 @@ final class ChatViewController: JSQMessagesViewController {
         present(picker, animated: true, completion:nil)
     }
     
-    private func addMessage(withId id: String, name: String, text: String, timeStamp: String) {
-        if let message = JSQMessage(senderId: id, displayName: name, text: text) {
-            messages.append(message)
-            
-        }
-    }
     
-    private func addPhotoMessage(withId id: String, key: String, mediaItem: JSQPhotoMediaItem) {
-        if let message = JSQMessage(senderId: id, displayName: "", media: mediaItem) {
-            messages.append(message)
-            
-            if (mediaItem.image == nil) {
-                photoMessageMap[key] = mediaItem
-            }
-            
-            collectionView.reloadData()
-        }
-    }
     
     override func collectionView(_ collectionView: JSQMessagesCollectionView!, didTapMessageBubbleAt indexPath: IndexPath!) {
         if let image = self.getImage(indexPath: indexPath)  {
@@ -343,9 +161,9 @@ final class ChatViewController: JSQMessagesViewController {
     }
     
     func getImage(indexPath: IndexPath) -> UIImage? {
-        let message = self.messages[indexPath.row]
-        if message.isMediaMessage == true {
-            let mediaItem = message.media
+        let message = chatVM.messages?[indexPath.row]
+        if message?.isMediaMessage == true {
+            let mediaItem = message?.media
             if mediaItem is JSQPhotoMediaItem {
                 let photoItem = mediaItem as! JSQPhotoMediaItem
                 if let theImage: UIImage = photoItem.image {
@@ -374,7 +192,7 @@ final class ChatViewController: JSQMessagesViewController {
     override func textViewDidChange(_ textView: UITextView) {
         super.textViewDidChange(textView)
         // If the text is not empty, the user is typing
-        isTyping = textView.text != ""
+        chatVM.isTyping = textView.text != ""
     }
     
 }
@@ -394,7 +212,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
             let asset = assets.firstObject
             
             // 3
-            if let key = sendPhotoMessage() {
+            if let key = fbClient.sendPhotoMessage() {
                 // 4
                 asset?.requestContentEditingInput(with: nil, completionHandler: { (contentEditingInput, info) in
                     let imageFileURL = contentEditingInput?.fullSizeImageURL
@@ -408,8 +226,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                             print("Error uploading photo: \(error.localizedDescription)")
                             return
                         }
-                        // 7
-                        self.setImageURL(self.storageRef.child((metadata?.path)!).description, forPhotoMessageWithKey: key)
+                        self.fbClient.setImageURL(self.storageRef.child((metadata?.path)!).description, forPhotoMessageWithKey: key)
                     }
                 })
             }
@@ -420,40 +237,6 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
     
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true, completion:nil)
-    }
-}
-
-extension Date {
-    func years(from date: Date) -> Int {
-        return Calendar.current.dateComponents([.year], from: date, to: self).year ?? 0
-    }
-    func months(from date: Date) -> Int {
-        return Calendar.current.dateComponents([.month], from: date, to: self).month ?? 0
-    }
-    func weeks(from date: Date) -> Int {
-        return Calendar.current.dateComponents([.weekOfMonth], from: date, to: self).weekOfMonth ?? 0
-    }
-    func days(from date: Date) -> Int {
-        return Calendar.current.dateComponents([.day], from: date, to: self).day ?? 0
-    }
-    func hours(from date: Date) -> Int {
-        return Calendar.current.dateComponents([.hour], from: date, to: self).hour ?? 0
-    }
-    func minutes(from date: Date) -> Int {
-        return Calendar.current.dateComponents([.minute], from: date, to: self).minute ?? 0
-    }
-    func seconds(from date: Date) -> Int {
-        return Calendar.current.dateComponents([.second], from: date, to: self).second ?? 0
-    }
-    func offset(from date: Date) -> String {
-        if years(from: date)   > 0 { return "\(years(from: date))y"   }
-        if months(from: date)  > 0 { return "\(months(from: date))M"  }
-        if weeks(from: date)   > 0 { return "\(weeks(from: date))w"   }
-        if days(from: date)    > 0 { return "\(days(from: date))d"    }
-        if hours(from: date)   > 0 { return "\(hours(from: date))h"   }
-        if minutes(from: date) > 0 { return "\(minutes(from: date))m" }
-        if seconds(from: date) > 0 { return "\(seconds(from: date))s" }
-        return ""
     }
 }
 

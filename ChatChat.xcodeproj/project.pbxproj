@@ -10,6 +10,8 @@
 		08469D9956510F3B03CCAC5F /* Pods_ChatChat.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25F508DB2C5103CD0B0A21A0 /* Pods_ChatChat.framework */; };
 		133185D91EE8812000E3C842 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 13BB42931EE87D4D002099BC /* GoogleService-Info.plist */; };
 		1385D4AB1EEBD20A00852092 /* ShowImageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1385D4AA1EEBD20A00852092 /* ShowImageViewController.swift */; };
+		13C77B211EF4EED8002D3258 /* FirebaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C77B201EF4EED8002D3258 /* FirebaseClient.swift */; };
+		13C77B231EF77E67002D3258 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C77B221EF77E67002D3258 /* ChatViewModel.swift */; };
 		459780D31D6465FB007BE66F /* UIImage+Gif.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459780D21D6465FB007BE66F /* UIImage+Gif.swift */; };
 		459E535F1D4BF36A00E675A5 /* License in Resources */ = {isa = PBXBuildFile; fileRef = 459E535E1D4BF36A00E675A5 /* License */; };
 		45A0D8FA1D49419500F26729 /* ChannelListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45A0D8F91D49419500F26729 /* ChannelListViewController.swift */; };
@@ -26,6 +28,8 @@
 /* Begin PBXFileReference section */
 		1385D4AA1EEBD20A00852092 /* ShowImageViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShowImageViewController.swift; sourceTree = "<group>"; };
 		13BB42931EE87D4D002099BC /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		13C77B201EF4EED8002D3258 /* FirebaseClient.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirebaseClient.swift; sourceTree = "<group>"; };
+		13C77B221EF77E67002D3258 /* ChatViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		1BAC3DEAA08244A8FDF5455F /* Pods-ChatChat.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ChatChat.debug.xcconfig"; path = "Pods/Target Support Files/Pods-ChatChat/Pods-ChatChat.debug.xcconfig"; sourceTree = "<group>"; };
 		25F508DB2C5103CD0B0A21A0 /* Pods_ChatChat.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ChatChat.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4570C5E21D54FD11007946D9 /* ChatChat.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ChatChat.entitlements; sourceTree = "<group>"; };
@@ -61,6 +65,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		13C77B1F1EF4EEBE002D3258 /* API */ = {
+			isa = PBXGroup;
+			children = (
+				13C77B201EF4EED8002D3258 /* FirebaseClient.swift */,
+			);
+			name = API;
+			sourceTree = "<group>";
+		};
+		13C77B241EF77E6E002D3258 /* View Model */ = {
+			isa = PBXGroup;
+			children = (
+				13C77B221EF77E67002D3258 /* ChatViewModel.swift */,
+			);
+			name = "View Model";
+			sourceTree = "<group>";
+		};
 		39793FC323FF62C9E8A96F49 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -111,6 +131,8 @@
 			isa = PBXGroup;
 			children = (
 				4570C5E21D54FD11007946D9 /* ChatChat.entitlements */,
+				13C77B241EF77E6E002D3258 /* View Model */,
+				13C77B1F1EF4EEBE002D3258 /* API */,
 				45A0D8FF1D4BB5DD00F26729 /* Model */,
 				BB5355901BEF816500321277 /* Controller */,
 				BB5355921BEF818700321277 /* Layout */,
@@ -189,7 +211,7 @@
 				TargetAttributes = {
 					BB5355751BEF765800321277 = {
 						CreatedOnToolsVersion = 7.0;
-						DevelopmentTeam = X3Z242LUAC;
+						DevelopmentTeam = E59D2Z958U;
 						LastSwiftMigration = 0800;
 						SystemCapabilities = {
 							com.apple.Keychain = {
@@ -290,8 +312,10 @@
 				459780D31D6465FB007BE66F /* UIImage+Gif.swift in Sources */,
 				1385D4AB1EEBD20A00852092 /* ShowImageViewController.swift in Sources */,
 				FBEE53041D7B26450004CC1B /* ChatViewController.swift in Sources */,
+				13C77B211EF4EED8002D3258 /* FirebaseClient.swift in Sources */,
 				45A0D8FA1D49419500F26729 /* ChannelListViewController.swift in Sources */,
 				BB53557A1BEF765800321277 /* AppDelegate.swift in Sources */,
+				13C77B231EF77E67002D3258 /* ChatViewModel.swift in Sources */,
 				45A0D8FE1D49508800F26729 /* CreateChannelCell.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -415,7 +439,7 @@
 				CODE_SIGN_ENTITLEMENTS = ChatChat/ChatChat.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				DEVELOPMENT_TEAM = X3Z242LUAC;
+				DEVELOPMENT_TEAM = E59D2Z958U;
 				INFOPLIST_FILE = ChatChat/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 9.3;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
@@ -438,7 +462,7 @@
 				CODE_SIGN_ENTITLEMENTS = ChatChat/ChatChat.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				DEVELOPMENT_TEAM = X3Z242LUAC;
+				DEVELOPMENT_TEAM = E59D2Z958U;
 				INFOPLIST_FILE = ChatChat/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 9.3;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
