@@ -108,7 +108,7 @@ final class ChatViewController: JSQMessagesViewController {
         if message?.senderId == senderId { // 1
             cell.textView?.textColor = UIColor.white // 2
             cell.cellBottomLabel.text = "\(String(describing: message?.senderDisplayName!))" + chatVM.dateFormatter()
-                
+            
         } else {
             cell.textView?.textColor = UIColor.black // 3
         }
@@ -202,23 +202,19 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
         
         picker.dismiss(animated: true, completion:nil)
         
-        // 1
         if let photoReferenceUrl = info[UIImagePickerControllerReferenceURL] as? URL {
             // Handle picking a Photo from the Photo Library
-            // 2
+            
             let assets = PHAsset.fetchAssets(withALAssetURLs: [photoReferenceUrl], options: nil)
             let asset = assets.firstObject
             
-            // 3
             if let key = fbClient.sendPhotoMessage() {
-                // 4
+                
                 asset?.requestContentEditingInput(with: nil, completionHandler: { (contentEditingInput, info) in
                     let imageFileURL = contentEditingInput?.fullSizeImageURL
                     
-                    // 5
                     let path = "\(String(describing: Auth.auth().currentUser?.uid))/\(Int(Date.timeIntervalSinceReferenceDate * 1000))/\(photoReferenceUrl.lastPathComponent)"
                     
-                    // 6
                     self.storageRef.child(path).putFile(from: imageFileURL!, metadata: nil) { (metadata, error) in
                         if let error = error {
                             print("Error uploading photo: \(error.localizedDescription)")
