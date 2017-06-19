@@ -125,8 +125,6 @@ final class ChatViewController: JSQMessagesViewController {
     }
     
     
-    
-    
     // MARK: UI and User Interaction
     
     private func setupOutgoingBubble() -> JSQMessagesBubbleImage {

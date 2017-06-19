@@ -97,8 +97,6 @@ class ChannelListViewController: UITableViewController {
         }
     }
 
-    
-    
     // MARK: UITableViewDataSource
     
     override func numberOfSections(in tableView: UITableView) -> Int {
